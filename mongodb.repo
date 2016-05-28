@@ -1,0 +1,6 @@
+[%(repotitle)s]
+name=%(reponame)s
+#baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.2/x86_64/
+baseurl=%(repourl)s
+gpgcheck=0
+enabled=1

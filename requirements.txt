@@ -1,0 +1,6 @@
+cuisine==0.7.12
+ecdsa==0.13
+Fabric==1.11.1
+fabtools==0.19.0
+paramiko==1.17.0
+pycrypto==2.6.1
