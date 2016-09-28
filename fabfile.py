@@ -119,11 +119,11 @@ def stop(svc):
 def reload(svc):
     service.reload(svc)
 
- 
-def add_mongo_repo():
-    env.reponame = 'MongoDB Repository'
-    env.repotitle = 'MongoDB'
-    env.repourl = 'https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.2/x86_64/'
+@task 
+def add_repo(**kwargs):
+    env.reponame = kwargs["reponame"]
+    env.repotitle = kwargs["repotitle"]
+    env.repourl = kwargs["repourl"]'https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.2/x86_64/'
     source = os.path.join(fabdir,'templates/mongodb.repo')
     upload_template(source,'/etc/yum.repos.d/mongodb.repo',context=dict(env), mode=0700, use_sudo=True)
 
@@ -138,6 +138,27 @@ def init_rs():
 def show_host():
     for host in env.hosts:
         puts(host)
+
+
+@task
+def setupsupervisor()
+    require.python.package("supervisor")
+    require.directory("/etc/supervisor.d", owner="", group="")
+    require.file(path="/etc/supervisord.conf", source="/local/path/supervisord.conf", owner="", group="")
+    add_task("/usr/bin/supervisord -c /etc/supervisord.conf","@reboot","supervisor")
+
+@task
+def run_process(p):
+    supervisor.start_process(p)
+
+
+@task
+def end_process(p):
+    supervisor.stop_process(p)
+
+@task
+def add_user(user):
+    create(user)
 
 
 
