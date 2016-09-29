@@ -28,12 +28,12 @@ groups= {
     "developer":["dev1", "dev2", "dev3"]
 }
 
+# User tasks
 @task
 def add_user(user):
     puts(green("Creating user: {0}".format(user)))
     user_create(user)
     sudo("passwd {0}".format(user))
-
 
 @task
 def add_groups(*args):
@@ -41,25 +41,44 @@ def add_groups(*args):
         puts(green("Adding group: {0}".format(value)))
         group_ensure(value)
   
- 
+@task
+def add_user_groups(user,group):
+    modify(user, extra_groups=[group])
+
 @task
 def push_keys(user, keyfile):
     puts(green("Adding public key to {0} for user {1}.".format(env.host, user)))
     add_ssh_public_key(user, keyfile)
 
- 
+@task
+def add_user(user):
+    create(user)
+
+@task
+def setpw(user):
+    sudo('passwd {0}'.format(user))
+
+
+# Package and yum repo tasks
 @task
 def install_pkgs(*args):
     for pkg in args:
         require.rpm.package(pkg, optoins="--quiet")
 
+@task 
+def add_repo(**kwargs):
+    env.reponame = kwargs["reponame"]
+    env.repotitle = kwargs["repotitle"]
+    env.repourl = kwargs["repourl"]'https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.2/x86_64/'
+    source = os.path.join(fabdir,'templates/mongodb.repo')
+    upload_template(source,'/etc/yum.repos.d/mongodb.repo',context=dict(env), mode=0700, use_sudo=True)
 
 @task
 def fail_task(device="sdc;"):
     disk_list = device.split(";")
     print disk_list
 
-
+# Disk and LVM tasks
 @task
 def configure_disks(*args):
          puts(green("Preparring disk for use."))
@@ -95,7 +114,6 @@ def create_vol(vgrp="datavg01", vol_name="datavol01"):
 @task
 def format_vol(device="/dev/datavg01/datavol01", fstype="ext4"):
     mkfs(device, fstype)
-
     
 @task
 def mount_device(device="/dev/datavg01/datavol01", mountpoint="/data/brick1", fstype="ext4"):
@@ -105,27 +123,7 @@ def mount_device(device="/dev/datavg01/datavol01", mountpoint="/data/brick1", fs
     sudo("mount")
 
 
-@task
-def start(svc):
-    require.service.started(svc)
 
-
-@task
-def stop(svc):
-    require.service.stopped(svc)
-
-
-@task
-def reload(svc):
-    service.reload(svc)
-
-@task 
-def add_repo(**kwargs):
-    env.reponame = kwargs["reponame"]
-    env.repotitle = kwargs["repotitle"]
-    env.repourl = kwargs["repourl"]'https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.2/x86_64/'
-    source = os.path.join(fabdir,'templates/mongodb.repo')
-    upload_template(source,'/etc/yum.repos.d/mongodb.repo',context=dict(env), mode=0700, use_sudo=True)
 
 
 @task
@@ -139,7 +137,20 @@ def show_host():
     for host in env.hosts:
         puts(host)
 
+# Service tasks
+@task
+def start(svc):
+    require.service.started(svc)
 
+@task
+def stop(svc):
+    require.service.stopped(svc)
+
+@task
+def reload(svc):
+    service.reload(svc)
+
+# Supervisor tasks
 @task
 def setupsupervisor()
     require.python.package("supervisor")
@@ -151,14 +162,40 @@ def setupsupervisor()
 def run_process(p):
     supervisor.start_process(p)
 
-
 @task
 def end_process(p):
     supervisor.stop_process(p)
 
+# Application deployment tasks
 @task
-def add_user(user):
-    create(user)
+"""
+Part of REST API deployment to upload specific supervisor configs
+"""
+def deploy_config(local_config_dir, config_dir, config):
+  if exists("{0}/{1}".format(config_dir, config)) is False:
+     with lcd(local_config_dir):
+       with cd(config_dir):
+          put("./{0}".format(config), "./{0}".format(config), use_sudo=True)
+          supervisor.reload()
 
+@task 
+"""
+Part of REST API deployment to clone repos.
+clone git repo with fabric/fab_tools
+"""
+def clone_repo()
+    with cd(app_dir):
+        run('git clone -b develop {0} {1}'.format(gitrepo, now))
+
+
+def create_link()
+"""
+Part of API deployment to create a symbolic like called current to most recent releast
+"""
+  if is_link('current'):
+    sudo("rm -f current")
+    run("ln -s {0} current'.format(now))
+  else:
+    run("ls -s {0} current".format(now))
 
 
