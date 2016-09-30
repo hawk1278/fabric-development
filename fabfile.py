@@ -195,7 +195,7 @@ Part of API deployment to create a symbolic like called current to most recent r
 """
   if is_link('current'):
     sudo("rm -f current")
-    run("ln -s {0} current'.format(now))
+    run("ln -s {0} current".format(now))
   else:
     run("ls -s {0} current".format(now))
 
