@@ -2,14 +2,14 @@
 import boto3
 from collections import defaultdict
 
-filters = [{'Name':'tag:InstanceName','Values':['web*']}]
+
 
 def get_conn():
     return boto3.resource('ec2')
 
-def get_instance_info(ec2): 
+def get_instance_info(ec2, ec2filters): 
     instances = ec2.instances.filter(
-        Filters=filters
+        Filters=ec2filters
     )
     ec2info = defaultdict()
     attributes = ['name','public_ip']
@@ -24,8 +24,9 @@ def get_instance_info(ec2):
         }
     return ec2info
 
-    
-ec2data = get_instance_info(get_conn())
+name = "db*"
+filters = [{'Name':'tag:InstanceName','Values':[name]}]
+ec2data = get_instance_info(get_conn(), filters)
 for instance_id, instance in ec2data.items():
     print instance
     #for key in attributes:
