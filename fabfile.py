@@ -15,6 +15,7 @@ from fabtools.require.files import directory
 from fabtools.require import rpm
 from fabtools.service import *
 from cuisine import *
+import boto3 
 import os
 import sys
 
