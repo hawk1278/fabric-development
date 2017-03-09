@@ -19,15 +19,6 @@ import boto3
 import os
 import sys
 
-env.roledefs = {
-    "web-east":["192.168.1.46"]
-}
-
-groups= {
-    "web":["webtest1","webtest2","webtest3"],
-    "db":["db1","db2"],
-    "developer":["dev1", "dev2", "dev3"]
-}
 
 # User tasks
 @task
@@ -45,8 +36,8 @@ def add_groups(*args):
     fab -R <role>/-H <host ip or name> add_groups:group1,group2
     """
     for group in args:
-        puts(green("Adding group: {0}".format(value)))
-        group_ensure(value)
+        puts(green("Adding group: {0}".format(group)))
+        group_ensure(group)
   
 @task
 def add_user_groups(user,group):
@@ -67,7 +58,7 @@ def push_keys(user, keyfile):
 
 
 @task
-def enable_sudoer(user):
+def enable_sudoer(u):
     """
     Add user to sudoers.d.
     fab -R <role>/-H <host ip or name> enable_sudoer:username
@@ -82,7 +73,6 @@ def enable_sudoer(user):
 def setpw(user):
     sudo('passwd {0}'.format(user))
 
-
 # Package and yum repo tasks
 @task
 def install_pkgs(*args):
@@ -91,38 +81,39 @@ def install_pkgs(*args):
     fab -R <role>/-H <host ip or name> install_pkgs:pkg1,pkg2,pkg3
     """
     for pkg in args:
-        require.rpm.package(pkg, optoins="--quiet")
+        sudo("yum install -y -q {0}".format(pkg))
 
 @task 
 def add_repo(**kwargs):
+    """
+    fab -R <role>/-H <host ip or name> add_repo:reponame=name,repotitle=title,repourl=url
+    """
     env.reponame = kwargs["reponame"]
     env.repotitle = kwargs["repotitle"]
     env.repourl = kwargs["repourl"]
     source = os.path.join(fabdir,'templates/yum.repo')
     upload_template(source,'/etc/yum.repos.d/{0}.repo'.format(kwargs["reponame"]), context=dict(env), mode=0700, use_sudo=True)
 
-@task
-def fail_task(device="sdc;"):
-    disk_list = device.split(";")
-    print disk_list
-
 # Disk and LVM tasks
 @task
 def configure_disks(*args):
-         puts(green("Preparring disk for use."))
-         for disk in args:
-             with settings(warn_only=True): 
-                 puts(green("Setting label to 'msdos'."))
-                 result = sudo("/sbin/parted -s /dev/{0} mklabel msdos".format(disk))
-                 if result.failed and not confirm("parted failed to mklabel.  Continue?"):
-                     abort("Aborting task")
-                 puts(green("Partitioning disk."))
-                 result = sudo("/sbin/parted -s /dev/{0} mkpart primary 0% 100%".format(disk))
-                 if result.failed and not confirm("parted failed to create partition.  Continue?"):
-                     abort("Aborting task")
-                 result = sudo("/sbin/parted -s /dev/{0} set 1 lvm on".format(disk))
-                 if result.failed and not confirm("parted failed to set lvm tag on partition.  Continue?"):
-                     abort("Aborting task")
+    """
+    fab -R <role>/-H <host ip or name> configure_disks:disk1,disk2
+    """
+    puts(green("Preparring disk for use."))
+    for disk in args:
+         with settings(warn_only=True): 
+             puts(green("Setting label to 'msdos'."))
+             result = sudo("/sbin/parted -s /dev/{0} mklabel msdos".format(disk))
+             if result.failed and not confirm("parted failed to mklabel.  Continue?"):
+                 abort("Aborting task")
+             puts(green("Partitioning disk."))
+             result = sudo("/sbin/parted -s /dev/{0} mkpart primary 0% 100%".format(disk))
+             if result.failed and not confirm("parted failed to create partition.  Continue?"):
+                 abort("Aborting task")
+             result = sudo("/sbin/parted -s /dev/{0} set 1 lvm on".format(disk))
+             if result.failed and not confirm("parted failed to set lvm tag on partition.  Continue?"):
+                 abort("Aborting task")
 
 @task
 def create_vg(vgrp="datavg01", *args):
@@ -149,16 +140,6 @@ def mount_device(device="/dev/datavg01/datavol01", mountpoint="/data/brick1", fs
     append("/etc/fstab", "{0}    {1}    {2}    defaults,nosuid,nodev    1 2".format(device, mountpoint, fstype), use_sudo=True)
     mount(device, mountpoint)
     sudo("mount")
-
-
-
-
-
-@task
-def init_rs():
-    put('initreplica.js', '/home/rohara/initrepl.js', use_sudo=True)
-    sudo('mongo {0}:27017 /home/rohara/initreplica.js'.format(env.host), shell=True)
-
 
 @task
 def show_host():
@@ -225,5 +206,3 @@ def create_link():
     run("ln -s {0} current".format(now))
   else:
     run("ls -s {0} current".format(now))
-
-
