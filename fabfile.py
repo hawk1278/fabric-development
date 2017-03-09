@@ -32,29 +32,52 @@ groups= {
 # User tasks
 @task
 def add_user(user):
+    """
+    fab -R <role>/-H <host ip or name> add_user:username
+    """
     puts(green("Creating user: {0}".format(user)))
     user_create(user)
     sudo("passwd {0}".format(user))
 
 @task
 def add_groups(*args):
+    """
+    fab -R <role>/-H <host ip or name> add_groups:group1,group2
+    """
     for group in args:
         puts(green("Adding group: {0}".format(value)))
         group_ensure(value)
   
 @task
 def add_user_groups(user,group):
+    """
+    Add additional groups to a user.
+    fab -R <role>/-H <host ip or name> add_user_groups:username,group
+    """
     modify(user, extra_groups=[group])
 
 @task
 def push_keys(user, keyfile):
+    """
+    Push a users public key to a host.
+    fab -R <role>/-H <host ip or name> push_keys:username,/path/to/keyfile
+    """
     puts(green("Adding public key to {0} for user {1}.".format(env.host, user)))
     add_ssh_public_key(user, keyfile)
 
-@task
-def add_user(user):
-    create(user)
 
+@task
+def enable_sudoer(user):
+    """
+    Add user to sudoers.d.
+    fab -R <role>/-H <host ip or name> enable_sudoer:username
+    """
+    source = "templates/sudoers"
+    env.u = u
+    upload_template(source,"/etc/sudoers.d/{0}".format(u),context=dict(env), mode=0640, use_sudo=True)
+    with cd("/etc/sudoers.d"):
+        sudo("chown -R root:root *")
+   
 @task
 def setpw(user):
     sudo('passwd {0}'.format(user))
@@ -63,6 +86,10 @@ def setpw(user):
 # Package and yum repo tasks
 @task
 def install_pkgs(*args):
+    """
+    Install a comma separated list of packages.
+    fab -R <role>/-H <host ip or name> install_pkgs:pkg1,pkg2,pkg3
+    """
     for pkg in args:
         require.rpm.package(pkg, optoins="--quiet")
 
@@ -70,9 +97,9 @@ def install_pkgs(*args):
 def add_repo(**kwargs):
     env.reponame = kwargs["reponame"]
     env.repotitle = kwargs["repotitle"]
-    env.repourl = kwargs["repourl"]'https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.2/x86_64/'
-    source = os.path.join(fabdir,'templates/mongodb.repo')
-    upload_template(source,'/etc/yum.repos.d/mongodb.repo',context=dict(env), mode=0700, use_sudo=True)
+    env.repourl = kwargs["repourl"]
+    source = os.path.join(fabdir,'templates/yum.repo')
+    upload_template(source,'/etc/yum.repos.d/{0}.repo'.format(kwargs["reponame"]), context=dict(env), mode=0700, use_sudo=True)
 
 @task
 def fail_task(device="sdc;"):
@@ -153,7 +180,7 @@ def reload(svc):
 
 # Supervisor tasks
 @task
-def setupsupervisor()
+def setupsupervisor():
     require.python.package("supervisor")
     require.directory("/etc/supervisor.d", owner="", group="")
     require.file(path="/etc/supervisord.conf", source="/local/path/supervisord.conf", owner="", group="")
@@ -169,10 +196,10 @@ def end_process(p):
 
 # Application deployment tasks
 @task
-"""
-Part of REST API deployment to upload specific supervisor configs
-"""
 def deploy_config(local_config_dir, config_dir, config):
+  """
+  Part of REST API deployment to upload specific supervisor configs
+  """
   if exists("{0}/{1}".format(config_dir, config)) is False:
      with lcd(local_config_dir):
        with cd(config_dir):
@@ -180,19 +207,19 @@ def deploy_config(local_config_dir, config_dir, config):
           supervisor.reload()
 
 @task 
-"""
-Part of REST API deployment to clone repos.
-clone git repo with fabric/fab_tools
-"""
-def clone_repo()
+def clone_repo():
+    """
+    Part of REST API deployment to clone repos.
+    clone git repo with fabric/fab_tools
+    """
     with cd(app_dir):
         run('git clone -b develop {0} {1}'.format(gitrepo, now))
 
 
-def create_link()
-"""
-Part of API deployment to create a symbolic like called current to most recent releast
-"""
+def create_link():
+  """
+  Part of API deployment to create a symbolic like called current to most recent releast
+  """
   if is_link('current'):
     sudo("rm -f current")
     run("ln -s {0} current".format(now))
